@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title><%= page[:title] %></title>
+  <link rel="stylesheet" href="/assets/style/style.css?v=<%= (File.read(File.join(PUBLIC,'.stamp')) rescue Time.now.to_i) %>">
+  <link rel="stylesheet" href="/assets/style/prism-okaidia.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chiron+Hei+HK:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+  <link rel="icon" href="/assets/images/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  <link rel="canonical" href="<%= page[:is_index] ? './' : "./#{page[:out_filename]}" %>">
+  <% (alt_langs || []).each do |alt| %>
+    <% next unless alt[:href] %>
+    <link rel="alternate" hreflang="<%= alt[:lang] %>" href="<%= alt[:href] %>">
+  <% end %>
+</head>
+<body style="  text-autospace: normal;word-break: auto-phrase;">
+  <button class="hamburger" id="sidebarToggle" aria-label="Open menu" aria-haspopup="true" aria-controls="sidebarBox" aria-expanded="false">
+    <span class="material-symbols-outlined">menu</span>
+  </button>
+  <div id="sidebarBackdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:998;"></div>
+
+  <aside class="sidebar_box xingothic-tc-w5" id="sidebarBox" aria-hidden="true">
+  <div>
+  <% if (defined?(alt_langs) && alt_langs&.any?) || (defined?(alt_versions) && alt_versions&.any?) %>
+  <nav class="doc-switchers" aria-label="Language and version switchers">
+    <% if alt_langs&.any? %>
+      <ul class="lang-switcher" style="list-style:none;display:flex;gap:8px;padding:0;margin:0;">
+        <% alt_langs.each do |alt| %>
+          <% is_current = (defined?(current_lang) && alt[:lang] == current_lang) %>
+          <li class="<%= is_current ? 'active' : '' %>">
+            <% if is_current %>
+              <span class="current capsule" style="color:rgba(0, 0, 0, 1);background-color: white;" aria-current="true" ><%= alt[:lang] %></span>
+            <% elsif alt[:href] %>
+              <a href="<%= alt[:href] %>" class="capsule" ><%= alt[:lang] %></a>
+            <% else %>
+              <span class="disabled" "current capsule"><%= alt[:lang] %></span>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+
+    <% if alt_versions&.any? %>
+      <ul class="version-switcher" style="list-style:none;display:flex;gap:8px;padding:0;margin:0;">
+        <% alt_versions.each do |alt| %>
+          <% is_current = (defined?(current_version) && alt[:version] == current_version) %>
+          <li class="<%= is_current ? 'active' : '' %>">
+            <% if is_current %>
+              <span class="current capsule" style="color:rgba(0, 0, 0, 1);background-color: white;" aria-current="true" ><%= alt[:version] %></span>
+            <% elsif alt[:href] %>
+              <a href="<%= alt[:href] %>" class="capsule" ><%= alt[:version] %></a>
+            <% else %>
+              <span class="disabled" "current capsule"><%= alt[:version] %></span>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  </nav>
+<% end %>
+  </div>
+    <section>
+      <div id="sidebar">
+        <% nav.each do |item| %>
+          <a href="<%= item[:href] %>"><%= item[:title] %></a>
+        <% end %>
+      </div>
+    </section>
+  </aside>
+
+  <main id="content">
+
+
+
+    <h1 id="MainTitle"><%= page[:title] %></h1>
+    <hr/>
+
+<% if toc&.any? %>
+<nav class="page-toc" aria-label="Table of contents">
+  <ol class="toc-h2">
+    <% toc.each do |sec| %>
+      <li>
+        <a href="<%= sec[:href] %>"><%= sec[:text] %></a>
+        <% if sec[:children]&.any? %>
+          <ol class="toc-h3">
+            <% sec[:children].each do |c| %>
+              <li><a href="<%= c[:href] %>"><%= c[:text] %></a></li>
+            <% end %>
+          </ol>
+        <% end %>
+      </li>
+    <% end %>
+  </ol>
+</nav>
+<% end %>
+
+    <article class="doc-body"><%= html %></article>
+  </main>
+
+  <!-- Prism JS -->
+    <script src="https://unpkg.com/prismjs/prism.js"></script>
+    <script src="https://unpkg.com/prismjs/components/prism-ruby.min.js"></script>
+    <script src="https://unpkg.com/prismjs/components/prism-javascript.min.js"></script>
+    <script src="https://unpkg.com/prismjs/components/prism-python.min.js"></script>
+    <script src="https://unpkg.com/prismjs/components/prism-markdown.min.js"></script>
+    <script src="https://unpkg.com/prismjs/components/prism-bash.min.js"></script>
+  
+    <script src="/assets/script/extras.js"></script>
+  <script>
+  (function liveReload(){
+    var last=null;
+    function tick(){
+      fetch('/.stamp',{cache:'no-store'}).then(function(r){
+        if(!r.ok) return;
+        return r.text();
+      }).then(function(txt){
+        if(typeof txt!=='string') return;
+        if(last && last!==txt) location.reload();
+        last = txt;
+      }).catch(function(){});
+      setTimeout(tick,1000);
+    }
+    tick();
+  })();
+  </script>
+
+
+  <script>
+  (function(){
+    var mqMobile = window.matchMedia('(max-width: 600px)');
+    var body = document.body;
+    var sidebar = document.getElementById('sidebarBox');
+    var toggleBtn = document.getElementById('sidebarToggle');
+    var backdrop = document.getElementById('sidebarBackdrop');
+    if(!sidebar || !toggleBtn || !backdrop) return;
+
+    var isOpen = false, lastScrollY = 0;
+
+    function lockScroll(){
+      lastScrollY = window.scrollY || window.pageYOffset || 0;
+      body.style.position = 'fixed';
+      body.style.top = (-lastScrollY) + 'px';
+      body.style.left = '0'; body.style.right = '0'; body.style.width = '100%';
+    }
+    function unlockScroll(){
+      body.style.position = '';
+      body.style.top = ''; body.style.left = ''; body.style.right = ''; body.style.width = '';
+      window.scrollTo(0,lastScrollY);
+    }
+    function openSidebar(){
+      if(isOpen) return;
+      isOpen = true;
+      sidebar.classList.add('active');
+      sidebar.setAttribute('aria-hidden','false');
+      toggleBtn.setAttribute('aria-expanded','true');
+      backdrop.style.display = 'block';
+      lockScroll();
+    }
+    function closeSidebar(){
+      if(!isOpen) return;
+      isOpen = false;
+      sidebar.classList.remove('active');
+      sidebar.setAttribute('aria-hidden','true');
+      toggleBtn.setAttribute('aria-expanded','false');
+      backdrop.style.display = 'none';
+      unlockScroll();
+    }
+    function toggleSidebar(){
+      if(!mqMobile.matches) return;
+      isOpen ? closeSidebar() : openSidebar();
+    }
+
+    toggleBtn.addEventListener('click', toggleSidebar);
+    backdrop.addEventListener('click', closeSidebar);
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape' && isOpen) closeSidebar(); });
+    sidebar.addEventListener('click', function(e){
+      var a = e.target.closest('a');
+      if(a && mqMobile.matches){ setTimeout(closeSidebar,0); }
+    });
+    mqMobile.addEventListener('change', function(ev){
+      if(!ev.matches){ closeSidebar(); }
+    });
+
+    var sx=0, sy=0;
+    sidebar.addEventListener('touchstart', function(e){
+      if(!mqMobile.matches) return;
+      var t=e.touches[0]; sx=t.clientX; sy=t.clientY;
+    }, {passive:true});
+    sidebar.addEventListener('touchend', function(e){
+      if(!mqMobile.matches) return;
+      var t=e.changedTouches[0], dx=t.clientX-sx, dy=Math.abs(t.clientY-sy);
+      if(dx < -60 && dy < 40){ closeSidebar(); }
+    }, {passive:true});
+  })();
+  </script>
+  <script>
+workbox.routing.registerRoute(
+  ({request}) => request.destination === 'video',
+  new workbox.strategies.CacheFirst({
+    plugins: [new workbox.rangeRequests.Plugin()],
+    cacheName: 'videos',
+  })
+);
+  </script>
+</body>
+</html>

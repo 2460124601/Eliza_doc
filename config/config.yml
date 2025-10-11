@@ -1,0 +1,7 @@
+defaults:
+  lang: "zh-TW"
+  version:
+  keeps:
+    - assets
+    - prism-okaidia.min.css
+    - robots.txt
