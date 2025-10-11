@@ -28,10 +28,10 @@
   <% if (defined?(alt_langs) && alt_langs&.any?) || (defined?(alt_versions) && alt_versions&.any?) %>
   <nav class="doc-switchers" aria-label="Language and version switchers">
     <% if alt_langs&.any? %>
-      <ul class="lang-switcher" style="list-style:none;display:flex;gap:8px;padding:0;margin:0;">
+      <ul class="lang-switcher" style="list-style:none;display:flex;gap:4px;padding:0;margin:0;">
         <% alt_langs.each do |alt| %>
           <% is_current = (defined?(current_lang) && alt[:lang] == current_lang) %>
-          <li class="<%= is_current ? 'active' : '' %>">
+          <li class="<%= is_current ? 'active' : '' %>" style="margin:0px;">
             <% if is_current %>
               <span class="current capsule" style="color:rgba(0, 0, 0, 1);background-color: white;" aria-current="true" ><%= alt[:lang] %></span>
             <% elsif alt[:href] %>
@@ -48,7 +48,7 @@
       <ul class="version-switcher" style="list-style:none;display:flex;gap:8px;padding:0;margin:0;">
         <% alt_versions.each do |alt| %>
           <% is_current = (defined?(current_version) && alt[:version] == current_version) %>
-          <li class="<%= is_current ? 'active' : '' %>">
+          <li class="<%= is_current ? 'active' : '' %>"  style="margin:0px;">
             <% if is_current %>
               <span class="current capsule" style="color:rgba(0, 0, 0, 1);background-color: white;" aria-current="true" ><%= alt[:version] %></span>
             <% elsif alt[:href] %>
