@@ -1,21 +1,43 @@
 <!doctype html>
-<html lang="zh-TW">
+<html lang="<%= current_lang %>">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title><%= page[:title] %></title>
-  <link rel="stylesheet" href="/assets/style/style.css?v=<%= (File.read(File.join(PUBLIC,'.stamp')) rescue Time.now.to_i) %>">
-  <link rel="stylesheet" href="/assets/style/prism-okaidia.css">
+  <title><%= ERB::Util.h(seo[:title]) %></title>
+<%- unless seo[:description].to_s.empty? -%>
+  <meta name="description" content="<%= ERB::Util.h(seo[:description]) %>">
+<%- end -%>
+  <link rel="canonical" href="<%= seo[:canonical] %>">
+<%- alt_langs.each do |alt| -%>
+<%-   next unless alt[:abs] -%>
+  <link rel="alternate" hreflang="<%= alt[:lang] %>" href="<%= alt[:abs] %>">
+<%- end -%>
+<%- if seo[:x_default] && alt_langs.count { |a| a[:abs] } > 1 -%>
+  <link rel="alternate" hreflang="x-default" href="<%= seo[:x_default] %>">
+<%- end -%>
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="<%= ERB::Util.h(page[:title]) %>">
+<%- unless seo[:description].to_s.empty? -%>
+  <meta property="og:description" content="<%= ERB::Util.h(seo[:description]) %>">
+<%- end -%>
+<%- if seo[:absolute] -%>
+  <meta property="og:url" content="<%= seo[:canonical] %>">
+<%- end -%>
+<%- unless seo[:site_name].to_s.empty? -%>
+  <meta property="og:site_name" content="<%= ERB::Util.h(seo[:site_name]) %>">
+<%- end -%>
+  <meta property="og:locale" content="<%= seo[:locale] %>">
+<%- if seo[:image] -%>
+  <meta property="og:image" content="<%= seo[:image] %>">
+<%- end -%>
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="<%= url_path('assets/style/style.css') %>?v=<%= (File.read(File.join(PUBLIC,'.stamp')) rescue Time.now.to_i) %>">
+  <link rel="stylesheet" href="<%= url_path('assets/style/prism-okaidia.css') %>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chiron+Hei+HK:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
-  <link rel="icon" href="/assets/images/favicon.png">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
-  <link rel="canonical" href="<%= page[:is_index] ? './' : "./#{page[:out_filename]}" %>">
-  <% (alt_langs || []).each do |alt| %>
-    <% next unless alt[:href] %>
-    <link rel="alternate" hreflang="<%= alt[:lang] %>" href="<%= alt[:href] %>">
-  <% end %>
+  <link rel="icon" href="<%= url_path('assets/images/favicon.png') %>">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet"/>
 </head>
 <body style="  text-autospace: normal;word-break: auto-phrase;">
   <button class="hamburger" id="sidebarToggle" aria-label="Open menu" aria-haspopup="true" aria-controls="sidebarBox" aria-expanded="false">
@@ -37,7 +59,7 @@
             <% elsif alt[:href] %>
               <a href="<%= alt[:href] %>" class="capsule" ><%= alt[:lang] %></a>
             <% else %>
-              <span class="disabled" "current capsule"><%= alt[:lang] %></span>
+              <span class="disabled capsule"><%= alt[:lang] %></span>
             <% end %>
           </li>
         <% end %>
@@ -54,7 +76,7 @@
             <% elsif alt[:href] %>
               <a href="<%= alt[:href] %>" class="capsule" ><%= alt[:version] %></a>
             <% else %>
-              <span class="disabled" "current capsule"><%= alt[:version] %></span>
+              <span class="disabled capsule"><%= alt[:version] %></span>
             <% end %>
           </li>
         <% end %>
@@ -102,19 +124,20 @@
   </main>
 
   <!-- Prism JS -->
-    <script src="https://unpkg.com/prismjs/prism.js"></script>
-    <script src="https://unpkg.com/prismjs/components/prism-ruby.min.js"></script>
-    <script src="https://unpkg.com/prismjs/components/prism-javascript.min.js"></script>
-    <script src="https://unpkg.com/prismjs/components/prism-python.min.js"></script>
-    <script src="https://unpkg.com/prismjs/components/prism-markdown.min.js"></script>
-    <script src="https://unpkg.com/prismjs/components/prism-bash.min.js"></script>
-  
-    <script src="/assets/script/extras.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-ruby.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markdown.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js" defer></script>
+
+    <script src="<%= url_path('assets/script/extras.js') %>" defer></script>
+<% if LIVE_RELOAD %>
   <script>
   (function liveReload(){
     var last=null;
     function tick(){
-      fetch('/.stamp',{cache:'no-store'}).then(function(r){
+      fetch('<%= url_path('.stamp') %>',{cache:'no-store'}).then(function(r){
         if(!r.ok) return;
         return r.text();
       }).then(function(txt){
@@ -127,6 +150,7 @@
     tick();
   })();
   </script>
+<% end %>
 
 
   <script>
@@ -196,15 +220,6 @@
       if(dx < -60 && dy < 40){ closeSidebar(); }
     }, {passive:true});
   })();
-  </script>
-  <script>
-workbox.routing.registerRoute(
-  ({request}) => request.destination === 'video',
-  new workbox.strategies.CacheFirst({
-    plugins: [new workbox.rangeRequests.Plugin()],
-    cacheName: 'videos',
-  })
-);
   </script>
 </body>
 </html>

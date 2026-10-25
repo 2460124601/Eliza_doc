@@ -68,11 +68,58 @@ Eliza/
 
 ```shell
 git clone https://github.com/2460124601/Eliza_doc.git
-cd ./Eliza
+cd ./Eliza_doc
 docker-compose up --build dev
 
 # visit: http://127.0.0.1:8080
 ```
 
+
+## Configuration
+
+`config/config.yml`:
+
+```yaml
+site:
+  url: "https://docs.example.com"   # enables absolute canonical/hreflang, og:url, sitemap.xml
+  base_path: ""                     # e.g. "/my-repo" when served from a sub-path
+  name: "Eliza"
+  description: ""
+  image: "assets/images/logo.png"   # default og:image
+```
+
+Environment variables `ELIZA_SITE_URL` and `ELIZA_BASE_PATH` override these values.
+When `site.url` is empty, links stay site-relative and `sitemap.xml` is skipped.
+
+Per-page front matter:
+
+```yaml
+---
+title: Getting Started
+description: Short summary for search results.   # defaults to the first paragraph
+order: 1
+slug: getting-started
+aliases: [old-name]
+---
+```
+
+## SEO
+
+Each build generates:
+- `<html lang>`, `<title>`, meta description, canonical, hreflang (incl. `x-default`), Open Graph tags
+- `robots.txt` and `sitemap.xml` (with language alternates)
+- Root `/` renders the default language's latest index page directly
+- A real `404.html` (`noindex`)
+- Older versions set canonical to the latest version of the same page and are excluded from the sitemap
+
+## Deployment (GitHub Pages)
+
+1. Repository → Settings → Pages → Source: **GitHub Actions**.
+2. Push to `main`; `.github/workflows/pages.yml` builds and deploys `public/`.
+
+The workflow detects the Pages URL and base path automatically.
+For a custom domain, set the repository variable `ELIZA_SITE_URL` (Settings → Secrets and variables → Actions → Variables)
+and add a `public/CNAME` file. Pull requests run the build only.
+
 ## License
-MIT License
+MIT License
