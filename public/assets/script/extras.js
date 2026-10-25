@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
           copyButton.innerText = 'content_copy';
         }, 2000);
       }).catch(err => {
-        console.error('複製失敗:', err);
+        console.error('Copy failed:', err);
       });
     });
   });
@@ -127,5 +127,32 @@ document.addEventListener("DOMContentLoaded", function () {
     window.addEventListener('resize', function () {
       if (root.style.getPropertyValue('--sidebar-width')) apply(clamp(current()), false);
     });
+  });
+})();
+
+(function () {
+  const KEY = 'eliza.theme';
+  const root = document.documentElement;
+  const media = window.matchMedia('(prefers-color-scheme: light)');
+
+  const current = () => root.getAttribute('data-theme') || (media.matches ? 'light' : 'dark');
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const btn = document.getElementById('themeToggle');
+    if (!btn) return;
+    const icon = btn.querySelector('.material-symbols-outlined');
+    const sync = () => {
+      const t = current();
+      if (icon) icon.textContent = t === 'light' ? 'dark_mode' : 'light_mode';
+      btn.setAttribute('aria-label', t === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
+    };
+    btn.addEventListener('click', function () {
+      const next = current() === 'light' ? 'dark' : 'light';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem(KEY, next); } catch (e) {}
+      sync();
+    });
+    media.addEventListener('change', sync);
+    sync();
   });
 })();
