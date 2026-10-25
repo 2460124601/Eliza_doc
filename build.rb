@@ -31,8 +31,29 @@ CONFIG = load_config(File.join(__dir__, "config", "config.yml"))
 DEFAULT_LANG    = ENV["ELIZA_DEFAULT_LANG"]    || dig_flex(CONFIG, "defaults", "lang")    || "zh-TW"
 DEFAULT_VERSION = ENV["ELIZA_DEFAULT_VERSION"] || dig_flex(CONFIG, "defaults", "version") 
 keeps_from_cfg  = dig_flex(CONFIG, "defaults", "keeps")
-KEEPS           = (keeps_from_cfg.is_a?(Array) ? keeps_from_cfg : [])
-KEEPS           = %w[assets prism-okaidia.min.css favicon.ico robots.txt] if KEEPS.empty?
+KEEPS           = (keeps_from_cfg.is_a?(Array) && !keeps_from_cfg.empty?) ? keeps_from_cfg : %w[assets CNAME .nojekyll]
+
+SITE_URL         = (ENV["ELIZA_SITE_URL"] || dig_flex(CONFIG, "site", "url")).to_s.strip.chomp("/")
+BASE_PATH        = (ENV["ELIZA_BASE_PATH"] || dig_flex(CONFIG, "site", "base_path")).to_s.strip
+                     .then { |s| s.empty? || s == "/" ? "" : "/" + s.gsub(%r{\A/+|/+\z}, "") }
+SITE_NAME        = dig_flex(CONFIG, "site", "name").to_s
+SITE_DESCRIPTION = dig_flex(CONFIG, "site", "description").to_s
+SITE_IMAGE       = dig_flex(CONFIG, "site", "image").to_s.sub(%r{\A/+}, "")
+LIVE_RELOAD      = ENV["ELIZA_LIVE_RELOAD"] == "1"
+
+# Site-relative path ("/zh-TW/v1.0/") with base path applied.
+def url_path(path)
+  "#{BASE_PATH}/#{path.to_s.sub(%r{\A/+}, "")}"
+end
+
+# Absolute URL when site.url is set, otherwise the site-relative path.
+def abs_url(path)
+  "#{SITE_URL}#{url_path(path)}"
+end
+
+def pretty_path(path)
+  path.sub(%r{(\A|/)index\.html\z}, '\1')
+end
 
 ROOT    = File.expand_path(__dir__)
 CONTENT = File.join(ROOT, "content")
@@ -161,9 +182,9 @@ md_files.each do |path|
     src = img["src"].to_s.strip
     case src
     when /\A\.?\/?assets\//i
-      img["src"] = "/" + src.sub(/\A\.?\//, "")
+      img["src"] = url_path(src.sub(/\A\.?\//, ""))
     when /\A\.?\/?images\//i
-      img["src"] = "/assets/" + src.sub(/\A\.?\//, "")
+      img["src"] = url_path("assets/" + src.sub(/\A\.?\//, ""))
     end
   end
 
@@ -173,23 +194,28 @@ md_files.each do |path|
       v = el[attr].to_s.strip
       next if v.empty?
       if v =~ /\A\.?\/?assets\//i
-        el[attr] = "/" + v.sub(/\A\.?\//, "")
+        el[attr] = url_path(v.sub(/\A\.?\//, ""))
       elsif v =~ /\A\.?\/?images\//i
-        el[attr] = "/assets/" + v.sub(/\A\.?\//, "")
+        el[attr] = url_path("assets/" + v.sub(/\A\.?\//, ""))
       end
     end
   end
 
+  description = fm["description"].to_s.strip
+  if description.empty?
+    first_p = frag.at_css("p")
+    description = first_p ? first_p.inner_text.gsub(/\s+/, " ").strip : ""
+    description = description[0, 157] + "..." if description.length > 160
+  end
+
   html = frag.to_html
-  html = html
-           .gsub(/(\s(?:src|href)=["'])\.?\/?assets\//i, '\1/assets/')
-           .gsub(/(\s(?:src|href)=["'])\.?\/?images\//i, '\1/assets/images/')
 
   filename_key = File.basename(path, ".md")
 
   records << {
     lang: lang, version: ver, title: title, slug: slug, order: order,
-    html: html, toc: toc, src_path: path, key: filename_key, aliases: aliases
+    html: html, toc: toc, src_path: path, key: filename_key, aliases: aliases,
+    description: description
   }
 end
 
@@ -216,8 +242,9 @@ end
 
 groups.each do |(_lang, _ver), pages|
   counter = 0
-  pages.each_with_index do |p, i|
-    if p[:slug].to_s.strip.downcase == "index" || i == 0
+  index_page = pages.find { |p| p[:slug].to_s.strip.downcase == "index" } || pages.first
+  pages.each do |p|
+    if p.equal?(index_page)
       p[:is_index]     = true
       p[:out_filename] = "index.html"
     else
@@ -228,17 +255,22 @@ groups.each do |(_lang, _ver), pages|
   end
 end
 
+# Site-relative paths (no leading slash, no base path), e.g. "zh-TW/v1.0/01-intro.html".
 map_by_lang_and_key = Hash.new { |h,k| h[k] = {} }
 groups.each do |(lang, ver), pages|
   pages.each do |p|
     map_by_lang_and_key[lang][p[:key]] ||= {}
-    map_by_lang_and_key[lang][p[:key]][ver] = "/#{lang}/#{ver}/#{p[:out_filename]}"
+    map_by_lang_and_key[lang][p[:key]][ver] = "#{lang}/#{ver}/#{p[:out_filename]}"
   end
 end
 
 def nearest_version_href(map, lang, key, versions, prefer_ver)
   map.dig(lang, key, prefer_ver) ||
     versions.reverse.map { |v| map.dig(lang, key, v) }.compact.first
+end
+
+def og_locale(lang)
+  lang.to_s.tr("-", "_")
 end
 
 template_path = File.join(ROOT, "template.html.erb")
@@ -255,30 +287,69 @@ rescue
 end
 new_manifest = {}
 
+# Pages that are their own canonical; these go into sitemap.xml.
+sitemap_entries = []
+
+render_page = lambda do |page, lang, ver, pages|
+  key      = page[:key]
+  self_rel = map_by_lang_and_key.dig(lang, key, ver)
+
+  # Older versions point canonical at the latest version of the same page, if it exists.
+  canonical_rel = map_by_lang_and_key.dig(lang, key, latest_version) || self_rel
+
+  nav = pages.map do |p|
+    { title: p[:title], href: url_path(pretty_path("#{lang}/#{ver}/#{p[:out_filename]}")) }
+  end
+
+  alt_langs = languages.map do |l|
+    rel = nearest_version_href(map_by_lang_and_key, l, key, versions, ver)
+    { lang: l, href: rel && url_path(pretty_path(rel)), abs: rel && abs_url(pretty_path(rel)) }
+  end
+
+  alt_versions = versions.map do |v|
+    rel = map_by_lang_and_key.dig(lang, key, v)
+    { version: v, href: rel && url_path(pretty_path(rel)) }
+  end
+
+  x_default_rel = nearest_version_href(map_by_lang_and_key, DEFAULT_LANG, key, versions, ver)
+  description   = page[:description].to_s.empty? ? SITE_DESCRIPTION : page[:description]
+
+  seo = {
+    title:       [page[:title], SITE_NAME].reject { |s| s.to_s.empty? }.uniq.join(" | "),
+    description: description,
+    canonical:   abs_url(pretty_path(canonical_rel)),
+    x_default:   x_default_rel && abs_url(pretty_path(x_default_rel)),
+    site_name:   SITE_NAME,
+    locale:      og_locale(lang),
+    image:       (!SITE_URL.empty? && !SITE_IMAGE.empty?) ? abs_url(SITE_IMAGE) : nil,
+    absolute:    !SITE_URL.empty?
+  }
+
+  if canonical_rel == self_rel
+    sitemap_entries << {
+      loc: seo[:canonical],
+      alternates: alt_langs.select { |a| a[:abs] && map_by_lang_and_key.dig(a[:lang], key, ver) }
+                           .map { |a| { lang: a[:lang], href: a[:abs] } },
+      x_default: seo[:x_default]
+    }
+  end
+
+  template.result_with_hash(
+    page: page, nav: nav, html: page[:html], toc: page[:toc],
+    current_lang: lang, current_version: ver,
+    alt_langs: alt_langs, alt_versions: alt_versions, seo: seo
+  )
+end
+
 groups.each do |(lang, ver), pages|
   puts "[build] Rendering #{lang}/#{ver} (#{pages.size} pages)"
 
   out_dir = File.join(PUBLIC, lang, ver)
   FileUtils.mkdir_p(out_dir)
 
-  nav = pages.map { |p| { title: p[:title], href: "./#{p[:out_filename]}" } }
-
   pages.each do |page|
     key = page[:key]
-
-    alt_langs = languages.map do |l|
-      { lang: l, href: nearest_version_href(map_by_lang_and_key, l, key, versions, ver) }
-    end
-
-    alt_versions = versions.map do |v|
-      { version: v, href: map_by_lang_and_key.dig(lang, key, v) }
-    end
-
-    out = template.result_with_hash(
-      page: page, nav: nav, html: page[:html], toc: page[:toc],
-      current_lang: lang, current_version: ver,
-      alt_langs: alt_langs, alt_versions: alt_versions
-    )
+    out = render_page.call(page, lang, ver, pages)
 
     out_fullpath = File.join(out_dir, page[:out_filename])
     EXPECTED_HTML << out_fullpath
@@ -301,6 +372,7 @@ groups.each do |(lang, ver), pages|
       EXPECTED_HTML << ali_fullpath
       redirect_html = <<~HTML
         <!doctype html><meta charset="utf-8">
+        <meta name="robots" content="noindex">
         <meta http-equiv="refresh" content="0; url=./#{ERB::Util.h(page[:out_filename])}">
         <link rel="canonical" href="./#{ERB::Util.h(page[:out_filename])}">
         <title>Moved</title>
@@ -310,48 +382,72 @@ groups.each do |(lang, ver), pages|
       puts "[alias] #{lang}/#{ver}/#{ali_fname} → #{page[:out_filename]}"
     end
   end
-
-  not_found = <<~HTML
-    <!doctype html><meta charset="utf-8">
-    <meta http-equiv="refresh" content="0; url=/">
-    <title>404 Not Found</title>
-    <p>Page not found. Redirecting to <a href="/">home</a>…</p>
-    <script>location.replace("/");</script>
-  HTML
-  not_found_path = File.join(out_dir, "404.html")
-  EXPECTED_HTML << not_found_path
-  File.write(not_found_path, not_found, encoding: "UTF-8")
 end
 
-root_index = <<~HTML
-<!doctype html>
-<html lang="#{DEFAULT_LANG}">
-<head>
-<meta charset="utf-8">
-<meta http-equiv="refresh" content="0; url=/#{DEFAULT_LANG}/#{latest_version}/">
-<title>Redirecting…</title>
-<script>location.replace("/#{DEFAULT_LANG}/#{latest_version}/");</script>
-<link rel="canonical" href="/#{DEFAULT_LANG}/#{latest_version}/">
-</head>
-<body>
-<p>Redirecting to <a href="/#{DEFAULT_LANG}/#{latest_version}/">latest docs</a>…</p>
-</body>
-</html>
-HTML
-root_index_path = File.join(PUBLIC, "index.html")
-EXPECTED_HTML << root_index_path
-File.write(root_index_path, root_index, encoding: "UTF-8")
+# Root "/" serves the default language's latest index page directly (no redirect);
+# its canonical points at the versioned URL.
+root_lang  = languages.include?(DEFAULT_LANG) ? DEFAULT_LANG : languages.first
+root_pages = groups[[root_lang, latest_version]]
+if root_pages && !root_pages.empty?
+  root_page  = root_pages.find { |p| p[:is_index] } || root_pages.first
+  entries_before = sitemap_entries.size
+  root_html  = render_page.call(root_page, root_lang, latest_version, root_pages)
+  sitemap_entries.pop if sitemap_entries.size > entries_before
+  root_index_path = File.join(PUBLIC, "index.html")
+  EXPECTED_HTML << root_index_path
+  File.write(root_index_path, root_html, encoding: "UTF-8")
+end
 
+home_href = url_path("")
 root_404 = <<~HTML
-  <!doctype html><meta charset="utf-8">
-  <meta http-equiv="refresh" content="0; url=/">
-  <title>404 Not Found</title>
-  <p>Page not found. Redirecting to <a href="/">home</a>…</p>
-  <script>location.replace("/");</script>
+  <!doctype html>
+  <html lang="#{ERB::Util.h(DEFAULT_LANG)}">
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>404 Not Found#{SITE_NAME.empty? ? "" : " | #{ERB::Util.h(SITE_NAME)}"}</title>
+  <link rel="stylesheet" href="#{url_path("assets/style/style.css")}">
+  <link rel="icon" href="#{url_path("assets/images/favicon.png")}">
+  </head>
+  <body>
+  <main style="margin:auto;text-align:center;">
+  <h1>404</h1>
+  <p style="margin-left:0">Page not found.</p>
+  <p style="margin-left:0"><a href="#{home_href}">Home</a></p>
+  </main>
+  </body>
+  </html>
 HTML
 root_404_path = File.join(PUBLIC, "404.html")
 EXPECTED_HTML << root_404_path
 File.write(root_404_path, root_404, encoding: "UTF-8")
+
+robots = +"User-agent: *\nAllow: /\n"
+robots << "\nSitemap: #{abs_url("sitemap.xml")}\n" unless SITE_URL.empty?
+File.write(File.join(PUBLIC, "robots.txt"), robots, encoding: "UTF-8")
+
+sitemap_path = File.join(PUBLIC, "sitemap.xml")
+if SITE_URL.empty?
+  File.delete(sitemap_path) if File.file?(sitemap_path)
+  puts "[seo] site.url not set: skipped sitemap.xml, canonical/hreflang are site-relative"
+else
+  xml = +%(<?xml version="1.0" encoding="UTF-8"?>\n)
+  xml << %(<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n)
+  sitemap_entries.each do |e|
+    xml << "  <url>\n    <loc>#{ERB::Util.h(e[:loc])}</loc>\n"
+    if e[:alternates].size > 1
+      e[:alternates].each do |a|
+        xml << %(    <xhtml:link rel="alternate" hreflang="#{ERB::Util.h(a[:lang])}" href="#{ERB::Util.h(a[:href])}"/>\n)
+      end
+      xml << %(    <xhtml:link rel="alternate" hreflang="x-default" href="#{ERB::Util.h(e[:x_default])}"/>\n) if e[:x_default]
+    end
+    xml << "  </url>\n"
+  end
+  xml << "</urlset>\n"
+  File.write(sitemap_path, xml, encoding: "UTF-8")
+  puts "[seo] sitemap.xml: #{sitemap_entries.size} urls"
+end
 
 prev_manifest.each do |lang, vs|
   vs.each do |ver, ks|

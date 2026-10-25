@@ -1,0 +1,30 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    kramdown (2.5.2)
+      rexml (>= 3.4.4)
+    kramdown-parser-gfm (1.1.0)
+      kramdown (~> 2.0)
+    nokogiri (1.19.4-x64-mingw-ucrt)
+      racc (~> 1.4)
+    nokogiri (1.19.4-x86_64-linux-gnu)
+      racc (~> 1.4)
+    racc (1.8.1)
+    rexml (3.4.4)
+    webrick (1.9.2)
+
+PLATFORMS
+  x64-mingw-ucrt
+  x86_64-linux
+
+DEPENDENCIES
+  kramdown (~> 2.4)
+  kramdown-parser-gfm (~> 1.1)
+  nokogiri (~> 1.16)
+  webrick (~> 1.9)
+
+RUBY VERSION
+   ruby 3.3.7p123
+
+BUNDLED WITH
+   2.6.8

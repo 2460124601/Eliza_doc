@@ -1,0 +1,7 @@
+/tmp/
+/public/.stamp
+/public/*/v*/
+/public/index.html
+/public/404.html
+/public/robots.txt
+/public/sitemap.xml

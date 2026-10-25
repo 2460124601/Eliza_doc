@@ -46,7 +46,7 @@ end
 def build_once
   puts "Rebuilding at #{Time.now.strftime("%H:%M:%S")}..."
   cmd = ["bundle", "exec", RbConfig.ruby, BUILD_RB]
-  stdout_str, stderr_str, status = Open3.capture3(*cmd)
+  stdout_str, stderr_str, status = Open3.capture3({ "ELIZA_LIVE_RELOAD" => "1" }, *cmd)
   if status.success?
     File.write(STAMP_PATH, Time.now.to_i.to_s) rescue nil
     puts "Rebuilt."

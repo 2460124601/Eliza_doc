@@ -2,7 +2,7 @@ FROM ruby:3.3
 
 WORKDIR /app
 
-COPY Gemfile Gemfile.lock ./
+COPY Gemfile* ./
 RUN bundle install
 
 COPY . .

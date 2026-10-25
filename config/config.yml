@@ -3,5 +3,18 @@ defaults:
   version:
   keeps:
     - assets
-    - prism-okaidia.min.css
-    - robots.txt
+    - CNAME
+    - .nojekyll
+
+site:
+  # Public URL without trailing slash, e.g. "https://docs.example.com".
+  # Required for absolute canonical/hreflang/og:url and sitemap.xml.
+  # Can be overridden with ELIZA_SITE_URL.
+  url: ""
+  # Sub-path when hosted under a directory, e.g. "/my-repo" for GitHub project pages.
+  # Can be overridden with ELIZA_BASE_PATH.
+  base_path: ""
+  name: "Eliza"
+  description: ""
+  # Default social preview image, relative to public/, e.g. "assets/images/logo.png".
+  image: "assets/images/logo.png"
