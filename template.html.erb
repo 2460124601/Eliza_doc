@@ -38,6 +38,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Chiron+Hei+HK:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
   <link rel="icon" href="<%= url_path('assets/images/favicon.png') %>">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet"/>
+  <script>
+  try { var w = localStorage.getItem('eliza.sidebarWidth'); if (w && window.innerWidth > 600) document.documentElement.style.setProperty('--sidebar-width', Math.min(+w, window.innerWidth * 0.5) + 'px'); } catch (e) {}
+  </script>
 </head>
 <body style="  text-autospace: normal;word-break: auto-phrase;">
   <button class="hamburger" id="sidebarToggle" aria-label="Open menu" aria-haspopup="true" aria-controls="sidebarBox" aria-expanded="false">
@@ -93,6 +96,7 @@
       </div>
     </section>
   </aside>
+  <div class="sidebar-resizer" id="sidebarResizer" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" tabindex="0" title="Drag to resize, double-click to reset"></div>
 
   <main id="content">
 
@@ -131,7 +135,7 @@
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markdown.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js" defer></script>
 
-    <script src="<%= url_path('assets/script/extras.js') %>" defer></script>
+    <script src="<%= url_path('assets/script/extras.js') %>?v=<%= (File.read(File.join(PUBLIC,'.stamp')) rescue Time.now.to_i) %>" defer></script>
 <% if LIVE_RELOAD %>
   <script>
   (function liveReload(){
