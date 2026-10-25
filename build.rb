@@ -31,8 +31,7 @@ CONFIG = load_config(File.join(__dir__, "config", "config.yml"))
 DEFAULT_LANG    = ENV["ELIZA_DEFAULT_LANG"]    || dig_flex(CONFIG, "defaults", "lang")    || "zh-TW"
 DEFAULT_VERSION = ENV["ELIZA_DEFAULT_VERSION"] || dig_flex(CONFIG, "defaults", "version") 
 keeps_from_cfg  = dig_flex(CONFIG, "defaults", "keeps")
-KEEPS           = (keeps_from_cfg.is_a?(Array) ? keeps_from_cfg : [])
-KEEPS           = %w[assets prism-okaidia.min.css favicon.ico robots.txt] if KEEPS.empty?
+KEEPS           = (keeps_from_cfg.is_a?(Array) && !keeps_from_cfg.empty?) ? keeps_from_cfg : %w[assets prism-okaidia.min.css favicon.ico robots.txt]
 
 ROOT    = File.expand_path(__dir__)
 CONTENT = File.join(ROOT, "content")
@@ -216,8 +215,9 @@ end
 
 groups.each do |(_lang, _ver), pages|
   counter = 0
-  pages.each_with_index do |p, i|
-    if p[:slug].to_s.strip.downcase == "index" || i == 0
+  index_page = pages.find { |p| p[:slug].to_s.strip.downcase == "index" } || pages.first
+  pages.each do |p|
+    if p.equal?(index_page)
       p[:is_index]     = true
       p[:out_filename] = "index.html"
     else
